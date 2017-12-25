@@ -151,9 +151,9 @@ def uploadFileToQiniu():
     # 构建鉴权对象
     q = Auth(access_key, secret_key)
     # 要上传的空间
-    bucket_name = 'images-server'
+    bucket_name = 'guipiao-oos'
     # 上传到七牛后保存的文件名
-    key = str(uuid.uuid1()) + '.png'
+    key = 'image/guipiao_manage/' + str(uuid.uuid1()) + '.png'
     # 生成上传 Token，可以指定过期时间等
     token = q.upload_token(bucket_name, key, 3600)
     # 要上传文件的本地路径
