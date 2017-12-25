@@ -15,7 +15,8 @@ body {
   font-size: 1.6rem;
   font-family: "Sintony", sans-serif;
   color: #eaf2e3;
-  background-color: #3a2c41;
+  /*background-color: #3a2c41;*/
+  background-color: #eaf2e3;
   -webkit-font-smoothing: antialiased;
   -moz-osx-font-smoothing: grayscale;
 }
@@ -64,7 +65,8 @@ Navigation trigger - visible on small devices only
   position: absolute;
   height: 4px;
   width: 4px;
-  background-color: #3a2c41;
+  /*background-color: #3a2c41;*/
+  background-color: #eaf2e3;
   border-radius: 50%;
   left: 50%;
   top: 50%;
@@ -83,7 +85,8 @@ Navigation trigger - visible on small devices only
   left: 0;
   height: 100%;
   width: 100%;
-  background-color: #3a2c41;
+  /*background-color: #3a2c41;*/
+  background-color: #eaf2e3;
   border-radius: inherit;
 }
 .cd-nav-trigger span::before {
@@ -131,7 +134,8 @@ Vertical navigation
 .cd-vertical-nav a {
   display: block;
   padding: 1em;
-  color: #3a2c41;
+  /*color: #3a2c41;*/
+  color: #eaf2e3;
   font-weight: bold;
   border-bottom: 1px solid rgba(58, 44, 65, 0.1);
 }
@@ -400,10 +404,12 @@ Content Sections - basic style
   /*display: table;*/
   width: 100%;
   height: 100vh;
-  background: #3a2c41;
+  /*background: #3a2c41;*/
+  background: #eaf2e3;
 }
 .cd-section:nth-of-type(even) {
-  background-color: #70557e;
+  /*background-color: #3a2c41;*/
+  background-color: #eaf2e3;
 }
 
 /* vertically align <div> inside <section> */
@@ -421,7 +427,8 @@ Content Sections - basic style
   line-height: 1.4;
 }
 .cd-section h1 b, .cd-section h2 b {
-  color: #584c5e;
+  /*color: #3a2c41;*/
+  color: #eaf2e3;
 }
 /*.cd-section p {
   margin: 1em auto 0;
