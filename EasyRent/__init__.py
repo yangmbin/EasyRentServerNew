@@ -20,4 +20,4 @@ DBSession = DB_Session
 # 图片服务器地址
 imageServer = 'http://oxcptmnzi.bkt.clouddn.com/'
 
-from EasyRent import views
+from EasyRent import views, zhimaCredit
