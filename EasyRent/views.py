@@ -1,6 +1,7 @@
 # -*- coding:utf-8 -*-
 import json
 import os
+import urllib2
 import uuid
 from urllib import urlopen, quote
 
@@ -14,6 +15,7 @@ from EasyRent import app, DBSession, imageServer
 @app.route('/manage')
 def manage():
     return render_template('guipiao_manage_template/index.html')
+
 
 # 贵漂公寓主页
 @app.route('/')
@@ -138,7 +140,7 @@ def add_house_info():
         # flash('添加成功')
         # return redirect(url_for('add_house_info'))
         return jsonify({'success': True, 'msg': '添加成功'})
-    # return render_template('/guipiao_manage_template/add_house_info.html')
+        # return render_template('/guipiao_manage_template/add_house_info.html')
 
 
 # 上传图片到七牛
@@ -189,7 +191,7 @@ def edit_contact():
         DBSession.commit()
         success_json = jsonify({'success': True, 'msg': '修改成功'})
         return success_json
-    # return render_template('edit_contact.html')
+        # return render_template('edit_contact.html')
 
 
 # 主页banner图列表
@@ -216,7 +218,7 @@ def add_banner():
         DBSession.commit()
         # flash('添加成功')
         return jsonify({'success': True, 'msg': '添加成功'})
-    # return render_template('add_banner.html')
+        # return render_template('add_banner.html')
 
 
 # 获取所有租房信息
@@ -239,7 +241,7 @@ def add_recommend():
         DBSession.commit()
         # flash('添加成功')
         return jsonify({'success': True, 'msg': '添加成功'})
-    # return render_template('add_recommend.html')
+        # return render_template('add_recommend.html')
 
 
 # 主页推荐公寓列表
@@ -410,3 +412,44 @@ def get_recommend_house_list():
     jsonData = json.dumps([(dict(row.items())) for row in rows])
     DBSession.commit()
     return jsonData
+
+
+# 获取共享公寓列表
+@app.route('/get_share_house_list/<int:page>')
+def get_share_house_list(page):
+    size = 10  # 固定分页条数为10条
+    offset = (page - 1) * size
+    check_session_validation()
+    res = DBSession.execute(
+        text("select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house limit :offset, :size"),
+        {'offset': offset, 'size': size})
+    rows = res.fetchall()
+    json_data = json.dumps([(dict(row.items())) for row in rows])
+    DBSession.commit()
+    return json_data
+
+
+# 小程序登录（获取openid）
+@app.route('/mini_login', methods=['POST'])
+def mini_login():
+    js_code = request.form['js_code']
+    avatar = request.form['avatar']
+    nickname = request.form['nickname']
+
+    url = 'https://api.weixin.qq.com/sns/jscode2session?appid=wx4dab771ae44ce9b2&secret=1eab4ec4f8b87935ea3080bb638ec9d0&grant_type=authorization_code&js_code=' + js_code
+    req = urllib2.Request(url=url)
+    res = urllib2.urlopen(req)
+    res = res.read()
+    res_obj = json.loads(res)
+    openid = res_obj['openid']
+    print(openid)
+
+    # 获取到openid后保存在数据库（有则更新，无则插入）
+    check_session_validation()
+    try:
+        DBSession.execute(text('insert ignore into mini_user(openid, avatar, nickname) values(:openid, :avatar, :nickname)'), {'openid': openid, 'avatar': avatar, 'nickname': nickname})
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '登录失败'})
+    return jsonify({'success': True, 'msg': '登录成功'})

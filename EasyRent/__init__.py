@@ -13,11 +13,12 @@ app = Flask(__name__)
 # 解决跨域问题
 CORS(app)
 app.config.from_object('config')
-engine = create_engine('mysql+pymysql://root:root@127.0.0.1/easyrent?charset=utf8')
+# engine = create_engine('mysql+pymysql://root:root@127.0.0.1/easyrent?charset=utf8')
+engine = create_engine('mysql+pymysql://root:root@120.78.80.151/easyrent?charset=utf8')
 DB_Session = scoped_session(sessionmaker(bind=engine))
 DBSession = DB_Session
 
 # 图片服务器地址
 imageServer = 'http://oxcptmnzi.bkt.clouddn.com/'
 
-from EasyRent import views, zhimaCredit
+from EasyRent import views

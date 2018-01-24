@@ -1,0 +1,5 @@
+Flask
+Flask-Cors  服务端解决跨域（目前已经不要了）
+Flask-SQLAlchemy
+PyMySQL
+qiniu
