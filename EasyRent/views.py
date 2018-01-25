@@ -155,7 +155,8 @@ def uploadFileToQiniu():
     # 要上传的空间
     bucket_name = 'guipiao-oos'
     # 上传到七牛后保存的文件名
-    key = 'image/guipiao_manage/' + str(uuid.uuid1()) + '.png'
+    # key = 'image/guipiao_manage/' + str(uuid.uuid1()) + '.png'
+    key = 'image/test/' + str(uuid.uuid1()) + '.png'
     # 生成上传 Token，可以指定过期时间等
     token = q.upload_token(bucket_name, key, 3600)
     # 要上传文件的本地路径
@@ -414,14 +415,18 @@ def get_recommend_house_list():
     return jsonData
 
 
-# 获取共享公寓列表
+# 获取共享公寓列表（获取全部、获取某个人的）
 @app.route('/get_share_house_list/<int:page>')
-def get_share_house_list(page):
+@app.route('/get_share_house_list/<int:page>/<openid>')
+def get_share_house_list(page, openid=None):
     size = 10  # 固定分页条数为10条
     offset = (page - 1) * size
+    condition_sql = ''
+    if openid is not None:
+        condition_sql = " where user_id = '" + openid + "'"
     check_session_validation()
     res = DBSession.execute(
-        text("select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house limit :offset, :size"),
+        text("select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house" + condition_sql + " limit :offset, :size"),
         {'offset': offset, 'size': size})
     rows = res.fetchall()
     json_data = json.dumps([(dict(row.items())) for row in rows])
@@ -452,4 +457,30 @@ def mini_login():
     except:
         DBSession.rollback()
         return jsonify({'success': False, 'msg': '登录失败'})
-    return jsonify({'success': True, 'msg': '登录成功'})
+    return jsonify({'success': True, 'openid': openid, 'msg': '登录成功'})
+
+
+# 插入公寓分享信息
+@app.route('/add_share_house', methods=['POST'])
+def add_share_house():
+    check_session_validation()
+    try:
+        DBSession.execute(
+            text('insert into share_house(user_id, house_img, city, region, address, house_type, rental, pay_type, installation, due_time, contact, gender, phone, agreement, ownership) values(:user_id, :house_img, :city, :region, :address, :house_type, :rental, :pay_type, :installation, :due_time, :contact, :gender, :phone, :agreement, :ownership)'),
+            request.form)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '提交失败，请重试'})
+    return jsonify({'success': True, 'msg': '提交成功'})
+
+
+# 获取公寓分享信息详情
+@app.route('/get_share_house_detail/<int:house_id>')
+def get_share_house_detail(house_id):
+    check_session_validation()
+    res = DBSession.execute(text('select * from share_house where share_house.id = :house_id'), {'house_id': house_id})
+    row = res.fetchone()
+    json_data = json.dumps(dict(row.items()))
+    DBSession.commit()
+    return json_data
