@@ -5,6 +5,7 @@ import urllib2
 import uuid
 from urllib import urlopen, quote
 
+import time
 from flask import render_template, redirect, request, session, url_for, flash, jsonify, json
 from qiniu import Auth, put_file
 from sqlalchemy import text, select
@@ -426,7 +427,8 @@ def get_share_house_list(page, openid=None):
         condition_sql = " where user_id = '" + openid + "'"
     check_session_validation()
     res = DBSession.execute(
-        text("select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house" + condition_sql + " limit :offset, :size"),
+        text(
+            "select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house" + condition_sql + " limit :offset, :size"),
         {'offset': offset, 'size': size})
     rows = res.fetchall()
     json_data = json.dumps([(dict(row.items())) for row in rows])
@@ -452,7 +454,9 @@ def mini_login():
     # 获取到openid后保存在数据库（有则更新，无则插入）
     check_session_validation()
     try:
-        DBSession.execute(text('insert ignore into mini_user(openid, avatar, nickname) values(:openid, :avatar, :nickname)'), {'openid': openid, 'avatar': avatar, 'nickname': nickname})
+        DBSession.execute(
+            text('insert ignore into mini_user(openid, avatar, nickname) values(:openid, :avatar, :nickname)'),
+            {'openid': openid, 'avatar': avatar, 'nickname': nickname})
         DBSession.commit()
     except:
         DBSession.rollback()
@@ -466,7 +470,8 @@ def add_share_house():
     check_session_validation()
     try:
         DBSession.execute(
-            text('insert into share_house(user_id, house_img, city, region, address, house_type, rental, pay_type, installation, due_time, contact, gender, phone, agreement, ownership) values(:user_id, :house_img, :city, :region, :address, :house_type, :rental, :pay_type, :installation, :due_time, :contact, :gender, :phone, :agreement, :ownership)'),
+            text(
+                'insert into share_house(user_id, house_img, city, region, address, house_type, rental, pay_type, installation, due_time, contact, gender, phone, agreement, ownership) values(:user_id, :house_img, :city, :region, :address, :house_type, :rental, :pay_type, :installation, :due_time, :contact, :gender, :phone, :agreement, :ownership)'),
             request.form)
         DBSession.commit()
     except:
@@ -479,8 +484,88 @@ def add_share_house():
 @app.route('/get_share_house_detail/<int:house_id>')
 def get_share_house_detail(house_id):
     check_session_validation()
-    res = DBSession.execute(text('select * from share_house where share_house.id = :house_id'), {'house_id': house_id})
-    row = res.fetchone()
-    json_data = json.dumps(dict(row.items()))
+
+    # 共享公寓的相关信息（得到字典）
+    house_res = DBSession.execute(text('select * from share_house where share_house.id = :house_id'),
+                                  {'house_id': house_id})
+    house_row = house_res.fetchone()
+    house_row_dict = dict(house_row.items())
+    # 查询共享公寓的评论列表
+    comment_res = DBSession.execute(text(
+        'select *, date_format(share_house_comment.time, "%Y/%m/%d %H:%i:%s") as format_time from share_house_comment, mini_user where share_house_comment.share_house_id = :house_id and share_house_comment.user_id = mini_user.openid order by share_house_comment.id desc'),
+        {'house_id': house_id})
+    comment_rows = comment_res.fetchall()
+    comment_dict_list = [(dict(comment_row.items())) for comment_row in comment_rows]
+    # 查询共享公寓每个评论对应的回复
+    for comment_item in comment_dict_list:
+        comment_id = comment_item['id']
+        reply_res = DBSession.execute(text(
+            'select *, date_format(share_house_reply.time, "%Y/%m/%d %H:%i:%s") as format_time from share_house_reply, mini_user where share_house_reply.share_house_comment_id = :comment_id and share_house_reply.user_id = mini_user.openid order by share_house_reply.id desc'),
+            {'comment_id': comment_id})
+        reply_rows = reply_res.fetchall()
+        reply_dict_list = [(dict(reply_row.items())) for reply_row in reply_rows]
+        # 每个回复，添加被回复人的信息
+        for item in reply_dict_list:
+            reply_user_id = item['reply_user_id']
+            reply_user_res = DBSession.execute(text('select * from mini_user where openid = :reply_user_id'),
+                                               {'reply_user_id': reply_user_id})
+            reply_user_row = reply_user_res.fetchone()
+            reply_user_dict = dict(reply_user_row.items())
+            item['reply_avatar'] = reply_user_dict['avatar']
+            item['reply_nickname'] = reply_user_dict['nickname']
+        comment_item['reply'] = reply_dict_list  # 添加回复信息
+    house_row_dict['comment'] = comment_dict_list  # 添加评论信息
+
+    json_data = json.dumps(house_row_dict)
     DBSession.commit()
     return json_data
+
+
+# 分享公寓（评论）
+@app.route('/share_house_comment', methods=['POST'])
+def share_house_comment():
+    params = {}
+    params['time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+    for key in request.form.iterkeys():
+        params[key] = request.form[key]
+    print params
+
+    check_session_validation()
+    try:
+        DBSession.execute(
+            text(
+                'insert into share_house_comment(user_id, share_house_id, content, time) values(:user_id, :share_house_id, :content, :time)'),
+            params)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '提交失败，请重试'})
+    return jsonify({'success': True, 'msg': '提交成功'})
+
+
+# 分享公寓（回复）
+@app.route('/share_house_reply', methods=['POST'])
+def share_house_reply():
+    params = {}
+    params['time'] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime(time.time()))
+    for key in request.form.iterkeys():
+        params[key] = request.form[key]
+    print params
+
+    check_session_validation()
+    try:
+        DBSession.execute(
+            text(
+                'insert into share_house_reply(user_id, reply_user_id, share_house_comment_id, content, time) values(:user_id, :reply_user_id, :share_house_comment_id, :content, :time)'),
+            params)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '提交失败，请重试'})
+    return jsonify({'success': True, 'msg': '提交成功'})
+
+
+# 删除分享公寓信息
+@app.route('/delete_share_house', methods=['POST'])
+def delete_share_house():
+    pass
