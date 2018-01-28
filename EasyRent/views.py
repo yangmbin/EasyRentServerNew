@@ -424,11 +424,11 @@ def get_share_house_list(page, openid=None):
     offset = (page - 1) * size
     condition_sql = ''
     if openid is not None:
-        condition_sql = " where user_id = '" + openid + "'"
+        condition_sql = " and user_id = '" + openid + "'"
     check_session_validation()
     res = DBSession.execute(
         text(
-            "select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house" + condition_sql + " limit :offset, :size"),
+            "select date_format(due_time, '%Y年%m月%d日') as due_time, house_img, address, house_type, rental, region, id from share_house where is_delete = 0" + condition_sql + " limit :offset, :size"),
         {'offset': offset, 'size': size})
     rows = res.fetchall()
     json_data = json.dumps([(dict(row.items())) for row in rows])
@@ -568,4 +568,11 @@ def share_house_reply():
 # 删除分享公寓信息
 @app.route('/delete_share_house', methods=['POST'])
 def delete_share_house():
-    pass
+    check_session_validation()
+    try:
+        DBSession.execute(text('update share_house set is_delete = 1 where id = :id'), request.form)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '删除失败，请重试'})
+    return jsonify({'success': True, 'msg': '已删除'})
