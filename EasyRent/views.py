@@ -576,3 +576,12 @@ def delete_share_house():
         DBSession.rollback()
         return jsonify({'success': False, 'msg': '删除失败，请重试'})
     return jsonify({'success': True, 'msg': '已删除'})
+
+
+# 小程序消息推送接口
+@app.route('/message_push', methods=['GET', 'POST'])
+def message_push():
+    echostr = request.args.to_dict().get('echostr', "")
+    return echostr
+
+
