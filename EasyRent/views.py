@@ -481,8 +481,8 @@ def add_share_house():
 
 
 # 获取公寓分享信息详情
-@app.route('/get_share_house_detail/<int:house_id>')
-def get_share_house_detail(house_id):
+@app.route('/get_share_house_detail/<int:house_id>/<openid>')
+def get_share_house_detail(house_id, openid):
     check_session_validation()
 
     # 共享公寓的相关信息（得到字典）
@@ -490,6 +490,12 @@ def get_share_house_detail(house_id):
                                   {'house_id': house_id})
     house_row = house_res.fetchone()
     house_row_dict = dict(house_row.items())
+
+    # 查询是否收藏
+    like_res = DBSession.execute(text('select * from share_house_like where user_id = :openid and house_id = :house_id'), {'openid': openid, 'house_id': house_id})
+    rowcount = like_res.rowcount
+    house_row_dict['like'] = rowcount
+
     # 查询共享公寓的评论列表
     comment_res = DBSession.execute(text(
         'select *, date_format(share_house_comment.time, "%Y/%m/%d %H:%i:%s") as format_time from share_house_comment, mini_user where share_house_comment.share_house_id = :house_id and share_house_comment.user_id = mini_user.openid order by share_house_comment.id desc'),
@@ -585,3 +591,73 @@ def message_push():
     return echostr
 
 
+# 分享公寓添加收藏
+@app.route('/share_house_like', methods=['POST'])
+def share_house_like():
+    check_session_validation()
+    try:
+        DBSession.execute(text('insert into share_house_like(user_id, house_id) values(:user_id, :house_id)'), request.form)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '添加收藏失败'})
+    return jsonify({'success': True, 'msg': '已收藏', 'like': 1})
+
+
+# 分享公寓取消收藏
+@app.route('/share_house_dislike', methods=['POST'])
+def share_house_dislike():
+    check_session_validation()
+    try:
+        DBSession.execute(text('delete from share_house_like where user_id = :user_id and house_id = :house_id'), request.form)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '取消收藏失败'})
+    return jsonify({'success': True, 'msg': '已取消', 'like': 0})
+
+
+# 我的收藏列表
+@app.route('/share_house_like_list/<int:page>/<openid>')
+def share_house_like_list(page, openid):
+    size = 10  # 固定分页条数为10条
+    offset = (page - 1) * size
+    check_session_validation()
+    res = DBSession.execute(
+        text(
+            "select date_format(sh.due_time, '%Y年%m月%d日') as due_time, sh.house_img, sh.address, sh.house_type, sh.rental, sh.region, sh.id from share_house as sh, share_house_like as shl where sh.is_delete = 0 and shl.user_id = :openid and sh.id = shl.house_id limit :offset, :size"),
+        {'offset': offset, 'size': size, 'openid': openid})
+    rows = res.fetchall()
+    json_data = json.dumps([(dict(row.items())) for row in rows])
+    DBSession.commit()
+    return json_data
+
+
+# 我的留言列表
+@app.route('/my_share_house_comment_list/<int:page>/<openid>')
+def my_share_house_comment_list(page, openid):
+    size = 10  # 固定分页条数为10条
+    offset = (page - 1) * size
+    check_session_validation()
+    res = DBSession.execute(
+        text(
+            "select a.content, DATE_FORMAT(a.time,'%Y/%m/%d %H:%i:%s') as time, c.avatar, c.nickname, b.address, b.house_type, a.share_house_id as house_id, a.id as comment_id from share_house_comment as a, share_house as b, mini_user as c where a.share_house_id = b.id and b.user_id = :openid and a.user_id = c.openid and b.is_delete = 0 order by a.time desc limit :offset, :size"),
+        {'offset': offset, 'size': size, 'openid': openid})
+    rows = res.fetchall()
+    json_data = json.dumps([(dict(row.items())) for row in rows])
+    DBSession.commit()
+    return json_data
+
+
+# 删除评论（对应的二级回复也全部删除）
+@app.route('/delete_share_house_comment', methods=['POST'])
+def delete_share_house_comment():
+    check_session_validation()
+    try:
+        DBSession.execute(text('delete from share_house_comment where id = :comment_id'), request.form)
+        DBSession.execute(text('delete from share_house_reply where share_house_comment_id = :comment_id'), request.form)
+        DBSession.commit()
+    except:
+        DBSession.rollback()
+        return jsonify({'success': False, 'msg': '删除失败'})
+    return jsonify({'success': True, 'msg': '已删除'})
